@@ -1,4 +1,4 @@
-package generator
+package builder
 
 import "strings"
 
@@ -9,6 +9,7 @@ func stripPrefix(name string) string {
 }
 
 func golangifyName(name string) string {
+	name = strings.ReplaceAll(name, " ", "")
 	name = strings.ReplaceAll(name, "_", "-")
 	name = strings.ReplaceAll(name, ":", "-")
 	clauses := strings.Split(name, "-")
@@ -18,10 +19,4 @@ func golangifyName(name string) string {
 		}
 	}
 	return strings.Join(clauses, "")
-}
-
-func golangifyFieldRef(ref string) string {
-	ref = strings.Replace(ref, "#field_oscal-", "", 1)
-	ref = strings.Replace(ref, "#assembly_oscal-", "", 1)
-	return golangifyName(ref)
 }

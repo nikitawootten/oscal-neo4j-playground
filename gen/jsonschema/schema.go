@@ -11,6 +11,7 @@ type Root struct {
 type Definition struct {
 	ID          string                 `json:"$id"`
 	Ref         string                 `json:"$ref"`
+	Title       string                 `json:"title"`
 	Description string                 `json:"description"`
 	Type        string                 `json:"type"`
 	Items       *Definition            `json:"items"`

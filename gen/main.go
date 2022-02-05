@@ -5,8 +5,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/nikitawootten/oscal-neo4j/gen/generator"
+	"github.com/nikitawootten/oscal-neo4j/gen/builder"
 	"github.com/nikitawootten/oscal-neo4j/gen/jsonschema"
+	"github.com/nikitawootten/oscal-neo4j/gen/outputer"
 )
 
 func main() {
@@ -24,10 +25,11 @@ func main() {
 	var s jsonschema.Root
 	json.Unmarshal(rawBytes, &s)
 
-	structs, err := generator.BuildStructConfig(&s)
+	b := builder.NewBuilder()
+	structs, err := b.Build(&s)
 	if err != nil {
 		panic(err)
 	}
 
-	generator.Output(os.Stdout, "out", structs...)
+	outputer.Output(os.Stdout, "out", structs...)
 }

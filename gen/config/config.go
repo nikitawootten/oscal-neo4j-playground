@@ -1,4 +1,4 @@
-package generator
+package config
 
 type Type string
 
@@ -15,15 +15,14 @@ const (
 	ArrayBoolType    Type = "[]bool"
 )
 
-type StructConfig struct {
-	Name        string
+type Struct struct {
 	GoName      string
 	Description string
-	Properties  []PropertyConfig
-	Refs        []ReferenceConfig
+	Properties  []Property
+	Refs        []Reference
 }
 
-type PropertyConfig struct {
+type Property struct {
 	Name            string
 	GoName          string
 	Description     string
@@ -31,7 +30,7 @@ type PropertyConfig struct {
 	RefStructGoName string
 }
 
-type ReferenceConfig struct {
+type Reference struct {
 	PropertyGoName string
 	StructGoName   string
 }
