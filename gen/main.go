@@ -1,20 +1,30 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
+	"io"
 	"os"
 
-	schema "github.com/lestrrat-go/jsschema"
 	"github.com/nikitawootten/oscal-neo4j/gen/generator"
+	"github.com/nikitawootten/oscal-neo4j/gen/jsonschema"
 )
 
 func main() {
-	s, err := schema.ReadFile("../vault/oscal_schema.json")
+	raw, err := os.Open("../vault/oscal_schema.json")
 	if err != nil {
-		panic(fmt.Errorf("did you run prepare_schema.sh? %w", err))
+		panic(err)
+	}
+	defer raw.Close()
+
+	rawBytes, err := io.ReadAll(raw)
+	if err != nil {
+		panic(err)
 	}
 
-	structs, err := generator.BuildStructConfig(s)
+	var s jsonschema.Root
+	json.Unmarshal(rawBytes, &s)
+
+	structs, err := generator.BuildStructConfig(&s)
 	if err != nil {
 		panic(err)
 	}

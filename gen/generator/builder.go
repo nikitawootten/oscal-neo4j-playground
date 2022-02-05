@@ -4,78 +4,87 @@ import (
 	"errors"
 	"fmt"
 
-	schema "github.com/lestrrat-go/jsschema"
+	"github.com/nikitawootten/oscal-neo4j/gen/jsonschema"
 )
 
-type StructConfigMap map[string]string
+type RefMap map[string]*Ref
 
-func (s StructConfigMap) Get(object *schema.Schema) (string, error) {
-	name := s[object.Title]
-	if name == "" {
-		return "", fmt.Errorf("no struct config for title %s", object.Title)
+func (r RefMap) Get(ref string) *Ref {
+	return r[ref]
+}
+
+func (r RefMap) Set(name string, object *jsonschema.Definition) {
+	r[object.ID] = &Ref{
+		Name: name,
+		Ref:  object,
 	}
-	return name, nil
 }
 
-func (s StructConfigMap) Set(name string, object *schema.Schema) {
-	s[object.Title] = golangifyName(name)
+type Ref struct {
+	Name string
+	Ref  *jsonschema.Definition
 }
 
-func BuildPropertyConfig(name string, object *schema.Schema, scm StructConfigMap) (PropertyConfig, error) {
+func BuildPropertyConfig(name string, object *jsonschema.Definition, refMap RefMap) (PropertyConfig, error) {
 	var t Type
 	var refStructGoName string
-	var err error
 
-	if len(object.Type) == 1 {
-		switch object.Type[0] {
-		case schema.ObjectType:
-			t = ObjectType
-			refStructGoName, err = scm.Get(object)
-			if err != nil {
-				return PropertyConfig{}, err
-			}
-		case schema.ArrayType:
-			if len(object.Items.Schemas) != 1 {
-				return PropertyConfig{}, errors.New("invalid array type")
-			}
-
-			if len(object.Items.Schemas[0].Type) != 1 {
-				t = ArrayType
-				refStructGoName = golangifyFieldRef(object.Items.Schemas[0].Reference)
-			} else {
-				switch object.Items.Schemas[0].Type[0] {
-				case schema.StringType:
-					t = ArrayStringType
-				case schema.IntegerType:
-					t = ArrayIntegerType
-				case schema.NumberType:
-					t = ArrayNumberType
-				case schema.BooleanType:
-					t = BoolType
-				case schema.ObjectType:
-					t = ArrayType
-					refStructGoName, err = scm.Get(object.Items.Schemas[0])
-					if err != nil {
-						return PropertyConfig{}, err
-					}
-				default:
-					return PropertyConfig{}, fmt.Errorf("invalid property sub-type for array %d", object.Items.Schemas[0].Type[0])
-				}
-			}
-		case schema.StringType:
-			t = StringType
-		case schema.IntegerType:
-			t = IntegerType
-		case schema.NumberType:
-			t = NumberType
-		case schema.BooleanType:
-			t = BoolType
-		default:
-			return PropertyConfig{}, fmt.Errorf("unknown property type %d", object.Type[0])
+	if object.Ref != "" {
+		ref := refMap.Get(object.Ref)
+		if ref == nil {
+			return PropertyConfig{}, errors.New("unknown reference")
 		}
-	} else {
-		t = ObjectType
-		refStructGoName = golangifyFieldRef(object.Reference)
+
+		object = ref.Ref
+	}
+
+	switch object.Type {
+	case "object":
+		// special case
+	case "array":
+		if len(object.Items.Type) != 1 {
+			t = ArrayType
+			refStructGoName = golangifyFieldRef(object.Items.Ref)
+		} else {
+			subObj := object.Items
+			if subObj.Ref != "" {
+				ref := refMap.Get(object.Ref)
+				if ref == nil {
+					return PropertyConfig{}, errors.New("unknown reference")
+				}
+
+				subObj = ref.Ref
+			}
+
+			if len(subObj.Type) != 1 {
+				return PropertyConfig{}, errors.New("no subtype specified")
+			}
+
+			switch subObj.Type {
+			case "string":
+				t = ArrayStringType
+			case "integer":
+				t = ArrayIntegerType
+			case "number":
+				t = ArrayNumberType
+			case "boolean":
+				t = BoolType
+			case "object":
+				// special case
+			default:
+				return PropertyConfig{}, fmt.Errorf("invalid property sub-type for array %s", object.Items.Type)
+			}
+		}
+	case "string":
+		t = StringType
+	case "integer":
+		t = IntegerType
+	case "number":
+		t = NumberType
+	case "boolean":
+		t = BoolType
+	default:
+		return PropertyConfig{}, fmt.Errorf("unknown property type %d", object.Type[0])
 	}
 
 	config := PropertyConfig{
@@ -89,22 +98,21 @@ func BuildPropertyConfig(name string, object *schema.Schema, scm StructConfigMap
 	return config, nil
 }
 
-func BuildStructConfig(root *schema.Schema) ([]StructConfig, error) {
+func BuildStructConfig(root *jsonschema.Root) ([]StructConfig, error) {
 	if root == nil {
 		return nil, errors.New("schema cannot be nil")
 	}
 
-	scm := StructConfigMap{}
+	refMap := RefMap{}
 	for name, object := range root.Definitions {
-		if len(object.Type) != 1 || object.Type[0] != schema.ObjectType {
-			continue
+		if object.ID != "" {
+			refMap.Set(name, object)
 		}
-		scm.Set(name, object)
 	}
 
 	var structs []StructConfig
 	for name, object := range root.Definitions {
-		if len(object.Type) != 1 || object.Type[0] != schema.ObjectType {
+		if object.Type != "object" {
 			continue
 		}
 
@@ -113,10 +121,9 @@ func BuildStructConfig(root *schema.Schema) ([]StructConfig, error) {
 		var props []PropertyConfig
 
 		for propName, propObject := range object.Properties {
-			prop, err := BuildPropertyConfig(propName, propObject, scm)
+			prop, err := BuildPropertyConfig(propName, propObject, refMap)
 			if err != nil {
-				continue
-				// return nil, fmt.Errorf("failed to build property config for %s: %w", propName, err)
+				return nil, fmt.Errorf("failed to build property config for %s: %w", propName, err)
 			}
 
 			props = append(props, prop)
