@@ -20,6 +20,8 @@ import "github.com/mindstand/gogm/v2"
 	for _, s := range structs {
 		outputStruct(w, s)
 	}
+
+	outputNodeList(w, structs)
 }
 
 func outputStruct(w io.Writer, s config.Struct) {
@@ -75,4 +77,17 @@ func outputDescription(w io.Writer, description string, indent bool) {
 	for _, line := range lines {
 		fmt.Fprintf(w, "%s// %s\n", indentString, line)
 	}
+}
+
+func outputNodeList(w io.Writer, structs []config.Struct) {
+	fmt.Fprintf(w, `
+
+func GetNodeList() []interface{} {
+	return []interface{}{
+`)
+	for _, s := range structs {
+		fmt.Fprintf(w, "		&%s{},", s.GoName)
+	}
+	fmt.Fprintf(w, `}
+}`)
 }
