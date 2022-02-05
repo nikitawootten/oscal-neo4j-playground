@@ -56,6 +56,22 @@ func (v *VisitedMap) Visited(title, description string) bool {
 	return ok
 }
 
+type RelatedMap map[string]map[string]map[string]bool
+
+func (r *RelatedMap) Relate(childKey, parentKey, propName string) {
+	_, ok := (*r)[childKey]
+	if !ok {
+		(*r)[childKey] = map[string]map[string]bool{parentKey: {propName: true}}
+	} else {
+		_, ok = (*r)[childKey][parentKey]
+		if !ok {
+			(*r)[childKey][parentKey] = map[string]bool{propName: true}
+		} else {
+			(*r)[childKey][parentKey][propName] = true
+		}
+	}
+}
+
 func StructKey(title, description string) string {
 	return fmt.Sprintf("%s::%s", title, description)
 }

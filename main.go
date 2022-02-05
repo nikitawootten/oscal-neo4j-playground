@@ -9,15 +9,16 @@ import (
 )
 
 func main() {
-	raw, err := os.ReadFile("oscal-content/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_catalog.json")
+	raw, err := os.ReadFile("vault/NIST_SP-800-53_rev5_catalog.json")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var catalogRoot schema.Root
+	var catalogRoot struct {
+		Catalog schema.CatalogCatalog `json:"catalog"`
+	}
 	err = json.Unmarshal(raw, &catalogRoot)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 }

@@ -13,9 +13,10 @@ type Builder struct {
 	structMap  StructMap
 	nameMap    NameMap
 	visitedMap VisitedMap
+	relatedMap RelatedMap
 }
 
-func (b *Builder) processPropertyDefinition(name string, object *jsonschema.Definition) (*IntermediateProperty, error) {
+func (b *Builder) processPropertyDefinition(name string, object *jsonschema.Definition, parentKey string) (*IntermediateProperty, error) {
 	var t config.Type
 	var structRelKey string
 
@@ -82,6 +83,10 @@ func (b *Builder) processPropertyDefinition(name string, object *jsonschema.Defi
 		return nil, fmt.Errorf("unknown property type %d", object.Type[0])
 	}
 
+	if structRelKey != "" {
+		b.relatedMap.Relate(structRelKey, parentKey, name)
+	}
+
 	return &IntermediateProperty{
 		Name:         name,
 		Title:        object.Title,
@@ -103,7 +108,7 @@ func (b *Builder) processStructDefinition(object *jsonschema.Definition) (*Inter
 
 	var props []*IntermediateProperty
 	for propName, propObject := range object.Properties {
-		prop, err := b.processPropertyDefinition(propName, propObject)
+		prop, err := b.processPropertyDefinition(propName, propObject, StructKey(object.Title, object.Description))
 		if err != nil {
 			return nil, fmt.Errorf("failed to build property config for %s: %w", propName, err)
 		}
@@ -183,10 +188,28 @@ func (b *Builder) Build(root *jsonschema.Root) ([]config.Struct, error) {
 			})
 		}
 
+		relationships := []config.Reference{}
+		if relMap, ok := b.relatedMap[intermediateStruct.Key()]; ok {
+			for parentKey, propNames := range relMap {
+				parentName, ok := b.nameMap[parentKey]
+				if !ok {
+					return nil, errors.New("unknown name")
+				}
+
+				for propName := range propNames {
+					relationships = append(relationships, config.Reference{
+						PropertyGoName: propName,
+						StructGoName:   parentName,
+					})
+				}
+			}
+		}
+
 		structs = append(structs, config.Struct{
 			GoName:      name,
 			Description: intermediateStruct.Description,
 			Properties:  properties,
+			Refs:        relationships,
 		})
 	}
 
@@ -199,5 +222,6 @@ func NewBuilder() *Builder {
 		structMap:  StructMap{},
 		nameMap:    NameMap{},
 		visitedMap: VisitedMap{},
+		relatedMap: RelatedMap{},
 	}
 }

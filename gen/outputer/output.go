@@ -33,6 +33,10 @@ func outputStruct(w io.Writer, s config.Struct) {
 		outputPropertyConfig(w, p)
 	}
 
+	if len(s.Refs) > 0 {
+		fmt.Print("\n	//Parent property relationships\n")
+	}
+
 	for _, r := range s.Refs {
 		outputReferenceConfig(w, r)
 	}
@@ -53,7 +57,7 @@ func outputPropertyConfig(w io.Writer, p config.Property) {
 }
 
 func outputReferenceConfig(w io.Writer, r config.Reference) {
-	fmt.Fprintf(w, "	Parent%s %s `json:\"-\" gogm:\"direction=incoming;relationship=has_%s\"`\n", r.StructGoName, r.StructGoName, r.PropertyGoName)
+	fmt.Fprintf(w, "	Parent%s *%s `json:\"-\" gogm:\"direction=incoming;relationship=has_%s\"`\n", r.StructGoName, r.StructGoName, r.PropertyGoName)
 }
 
 func outputDescription(w io.Writer, description string, indent bool) {
